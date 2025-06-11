@@ -3,6 +3,11 @@
 .env.local
 .env.production
 
+# Database files
+*.db
+signups.db
+signups_export_*.csv
+
 # Python
 __pycache__/
 *.pyc

@@ -3,6 +3,7 @@ from groq import Groq
 import time
 import os
 from dotenv import load_dotenv
+from database import SignupDatabase, validate_email
 
 # Load environment variables from .env file
 load_dotenv()
@@ -15,112 +16,367 @@ if not groq_api_key:
 
 client = Groq(api_key=groq_api_key)
 
+# Initialize database for signups
+db = SignupDatabase()
+
 # Page configuration
 st.set_page_config(
-    page_title="MediBuddy Clinical Assistant", 
+    page_title="MediBuddy by Cavari", 
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Simple CSS for clean black text on white background
+# Modern CSS with Cavari branding
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
     .stApp {
-        background-color: white;
-        color: black;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        font-family: 'Inter', sans-serif;
     }
     
-    .main-header {
-        background-color: #f8f9fa;
-        padding: 2rem;
-        border-radius: 10px;
+    /* Early Access Banner */
+    .early-access-banner {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem;
         text-align: center;
         margin-bottom: 2rem;
-        border: 1px solid #dee2e6;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
     }
     
+    .early-access-form {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .early-access-input {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 25px;
+        font-size: 14px;
+        min-width: 250px;
+        outline: none;
+    }
+    
+    .early-access-btn {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 25px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .early-access-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(240, 147, 251, 0.4);
+    }
+    
+    /* Main Header with Cavari Branding */
+    .main-header {
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        padding: 3rem 2rem;
+        border-radius: 20px;
+        color: white;
+        text-align: center;
+        margin-bottom: 3rem;
+        box-shadow: 0 20px 40px rgba(30, 60, 114, 0.3);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .main-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+        opacity: 0.3;
+    }
+    
+    .cavari-logo {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .cavari-c { color: #1e3c72; }
+    .cavari-o1 { color: #f5576c; }
+    .cavari-v { color: #667eea; }
+    .cavari-a { color: #f5576c; }
+    .cavari-r { color: #1e3c72; }
+    .cavari-i { color: #1e3c72; }
+    
     .main-header h1 {
-        color: black;
+        color: white;
         margin-bottom: 1rem;
+        font-size: 3rem;
+        font-weight: 700;
+        position: relative;
+        z-index: 1;
     }
     
     .main-header p {
-        color: #333;
+        color: rgba(255,255,255,0.9);
+        font-size: 1.2rem;
+        position: relative;
+        z-index: 1;
     }
     
+    /* Modern Form Container */
+    .form-container {
+        background: white;
+        padding: 3rem;
+        border-radius: 25px;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.1);
+        margin: 2rem 0;
+        border: 1px solid rgba(255,255,255,0.2);
+        backdrop-filter: blur(10px);
+    }
+    
+    .form-title {
+        color: #1e3c72;
+        font-size: 1.8rem;
+        font-weight: 600;
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+    
+    /* Cool Input Styling */
     .stTextArea > div > div > textarea {
-        border: 1px solid #ccc;
-        border-radius: 5px;
-        background-color: white;
-        color: black;
+        border: 2px solid #e1ecf4;
+        border-radius: 15px;
+        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+        color: #1e3c72;
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        line-height: 1.6;
+        transition: all 0.3s ease;
+        padding: 1rem;
     }
     
+    .stTextArea > div > div > textarea:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        background: white;
+        transform: translateY(-2px);
+    }
+    
+    /* Modern Button */
     .stButton > button {
-        background-color: #007bff;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         border: none;
-        border-radius: 5px;
-        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        padding: 1rem 3rem;
+        font-weight: 600;
+        font-size: 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        width: 100%;
     }
     
     .stButton > button:hover {
-        background-color: #0056b3;
+        transform: translateY(-3px);
+        box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
     }
     
+    /* Output Container */
     .output-container {
-        background-color: white;
-        padding: 1.5rem;
-        border: 1px solid #ccc;
-        border-radius: 5px;
-        margin: 1rem 0;
-        color: black;
+        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+        padding: 2.5rem;
+        border-radius: 20px;
+        margin: 2rem 0;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        border: 1px solid rgba(102, 126, 234, 0.1);
+        color: #1e3c72;
+        line-height: 1.8;
     }
     
+    /* Success Message */
     .success-message {
-        background-color: #d4edda;
-        color: #155724;
-        padding: 1rem;
-        border-radius: 5px;
-        border: 1px solid #c3e6cb;
-        margin: 1rem 0;
+        background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 15px;
+        margin: 1.5rem 0;
+        box-shadow: 0 10px 25px rgba(86, 171, 47, 0.3);
+        text-align: center;
     }
     
-    /* Hide sidebar */
+    /* Progress Bar */
+    .stProgress > div > div > div > div {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    /* Feature Cards */
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 2rem;
+        margin: 3rem 0;
+    }
+    
+    .feature-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        text-align: center;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(102, 126, 234, 0.1);
+    }
+    
+    .feature-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+    }
+    
+    .feature-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    
+    .feature-title {
+        color: #1e3c72;
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    
+    .feature-desc {
+        color: #666;
+        line-height: 1.6;
+    }
+    
+    /* Footer */
+    .footer {
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        color: white;
+        padding: 3rem 2rem;
+        border-radius: 20px;
+        text-align: center;
+        margin-top: 3rem;
+    }
+    
+    /* Hide default Streamlit elements */
     .css-1d391kg {
         display: none;
     }
     
-    /* Make sure all text is black */
-    h1, h2, h3, h4, h5, h6, p, div, span {
-        color: black !important;
-    }
-    
-    .stMarkdown {
-        color: black;
-    }
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# Main content
-st.markdown("""
-<div class="main-header">
-    <h1>🏥 MediBuddy Clinical Assistant</h1>
-    <p>Transform raw clinical notes into professional, structured documentation</p>
+# Early Access Banner with functional signup
+signup_count = db.get_signup_count()
+
+st.markdown(f"""
+<div class="early-access-banner">
+    <h2>🚀 Early Access to MediBuddy by Cavari</h2>
+    <p>Be among the first to experience the future of clinical documentation</p>
+    <p style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.8;">🎯 {signup_count} people have joined • 🔒 HIPAA Compliant • ⚡ AI-Powered</p>
 </div>
 """, unsafe_allow_html=True)
 
-# Input section
-st.markdown("### 📝 Input Clinical Notes")
+# Functional signup form
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    with st.form("signup_form", clear_on_submit=True):
+        signup_email = st.text_input(
+            "", 
+            placeholder="Enter your email for early access",
+            label_visibility="collapsed"
+        )
+        
+        if st.form_submit_button("🚀 Join Waitlist", use_container_width=True):
+            if signup_email:
+                if validate_email(signup_email):
+                    if not db.email_exists(signup_email):
+                        # Get user info (basic)
+                        user_ip = "webapp_user"  # Could get real IP if needed
+                        
+                        if db.add_signup(signup_email, user_ip):
+                            st.success(f"🎉 Welcome to the waitlist! You're signup #{db.get_signup_count()}")
+                            st.balloons()
+                            time.sleep(2)
+                            st.rerun()
+                        else:
+                            st.error("❌ Something went wrong. Please try again.")
+                    else:
+                        st.warning("📧 You're already on the waitlist! We'll be in touch soon.")
+                else:
+                    st.error("❌ Please enter a valid email address.")
+            else:
+                st.error("❌ Please enter your email address.")
+
+# Main Header with Cavari Branding
+st.markdown("""
+<div class="main-header">
+    <div class="cavari-logo">
+        <span class="cavari-c">c</span><span class="cavari-o1">o</span><span class="cavari-v">v</span><span class="cavari-a">a</span><span class="cavari-r">r</span><span class="cavari-i">i</span>
+    </div>
+    <h1>🏥 MediBuddy</h1>
+    <p>Transform raw clinical notes into professional, structured documentation</p>
+    <p><em>Powered by Advanced AI • Trusted by Healthcare Professionals</em></p>
+</div>
+""", unsafe_allow_html=True)
+
+# Feature Cards
+st.markdown("""
+<div class="feature-grid">
+    <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Lightning Fast</div>
+        <div class="feature-desc">Generate structured notes in seconds with our advanced AI</div>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">🎯</div>
+        <div class="feature-title">Medical Accuracy</div>
+        <div class="feature-desc">Trained on medical terminology for precise documentation</div>
+    </div>
+    <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <div class="feature-title">HIPAA Compliant</div>
+        <div class="feature-desc">Enterprise-grade security for patient data protection</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Main Form
+st.markdown("""
+<div class="form-container">
+    <div class="form-title">📝 Clinical Note Generator</div>
+""", unsafe_allow_html=True)
+
 with st.form("clinical_form", clear_on_submit=False):
     raw_text = st.text_area(
-        "Paste your raw clinical notes, dictation, or shorthand below:",
+        "",
         height=300,
-        placeholder="Example: 45yo M c/o chest pain x 2 days, worse w/ exertion, denies SOB, PMH HTN DM, takes lisinopril metformin, NKDA, vitals stable, chest clear, heart RRR no murmur, plan EKG troponins cardiology consult...",
+        placeholder="Paste your raw clinical notes here...\n\nExample: 45yo M c/o chest pain x 2 days, worse w/ exertion, denies SOB, PMH HTN DM, takes lisinopril metformin, NKDA, vitals stable, chest clear, heart RRR no murmur, plan EKG troponins cardiology consult...",
         help="Enter unstructured clinical text that needs to be organized"
     )
     
-    submit_button = st.form_submit_button("🚀 Generate Structured Note")
+    submit_button = st.form_submit_button("🚀 Generate Professional Note")
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 # Processing and output
 if submit_button and raw_text.strip():
@@ -129,7 +385,7 @@ if submit_button and raw_text.strip():
     progress_bar = st.progress(0)
     status_text = st.empty()
     
-    status_text.text("🔄 Processing...")
+    status_text.text("🔄 Initializing AI processing...")
     progress_bar.progress(20)
     time.sleep(0.5)
     
@@ -138,7 +394,7 @@ if submit_button and raw_text.strip():
     
     # System prompt
     system_prompt = """
-You are an expert clinical documentation assistant. Transform raw, unstructured clinical notes into professional, comprehensive medical documentation.
+You are an expert clinical documentation assistant powered by Cavari's advanced AI. Transform raw, unstructured clinical notes into professional, comprehensive medical documentation.
 
 Create a well-organized note with these sections (include only relevant sections):
 
@@ -217,7 +473,7 @@ Guidelines:
         # Success message
         st.markdown("""
         <div class="success-message">
-            ✅ <strong>Clinical note generated successfully!</strong> 
+            ✅ <strong>Clinical note generated successfully by Cavari AI!</strong> 
             Review the documentation above and copy as needed.
         </div>
         """, unsafe_allow_html=True)
@@ -234,10 +490,13 @@ elif submit_button and not raw_text.strip():
     st.warning("⚠️ Please enter some clinical notes to process.")
 
 # Footer
-st.markdown("---")
 st.markdown("""
-<div style="text-align: center; padding: 1rem; background-color: #f8f9fa; border-radius: 5px; margin-top: 2rem;">
-    <p style="color: black; margin: 0;"><strong>MediBuddy Clinical Assistant</strong> | Built for Healthcare Professionals</p>
-    <p style="color: #666; margin: 0;"><em>For educational and assistance purposes only. Always verify clinical documentation.</em></p>
+<div class="footer">
+    <div class="cavari-logo" style="font-size: 2rem; margin-bottom: 1rem;">
+        <span class="cavari-c">c</span><span class="cavari-o1">o</span><span class="cavari-v">v</span><span class="cavari-a">a</span><span class="cavari-r">r</span><span class="cavari-i">i</span>
+    </div>
+    <p><strong>MediBuddy Clinical Assistant</strong> | Powered by Cavari AI</p>
+    <p><em>⚠️ For educational and assistance purposes only. Always verify clinical documentation.</em></p>
+    <p style="margin-top: 1rem; opacity: 0.8;">© 2024 Cavari. All rights reserved.</p>
 </div>
 """, unsafe_allow_html=True)

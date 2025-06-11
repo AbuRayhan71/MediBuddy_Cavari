@@ -6,9 +6,13 @@ A professional clinical documentation assistant that transforms raw clinical not
 
 - Transform unstructured clinical notes into professional documentation
 - AI-powered analysis using Groq's LLaMA models
-- Clean, minimal interface focused on usability
+- Clean, modern interface with Cavari branding
 - Secure API key management with environment variables
 - Real-time streaming output
+- **Early Access Signup System** with SQLite database
+- **Admin Panel** for managing email signups
+- Email validation and duplicate prevention
+- Export functionality for signup data
 
 ## 🚀 Quick Setup
 
@@ -43,6 +47,14 @@ streamlit run main.py
 ```
 
 The app will be available at `http://localhost:8501`
+
+### 5. Access Admin Panel (Optional)
+To view and manage email signups:
+```bash
+python start_admin.py
+```
+- Admin panel: `http://localhost:8502`
+- Password: `cavari2024admin`
 
 ## 🔒 Security
 
