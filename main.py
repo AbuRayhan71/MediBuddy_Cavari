@@ -3,9 +3,13 @@ from groq import Groq
 import time
 import os
 from dotenv import load_dotenv
+from database import SignupDatabase, validate_email
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Initialize database
+db = SignupDatabase()
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
@@ -20,6 +24,10 @@ if "early_access_clicked" not in st.session_state:
     st.session_state.early_access_clicked = False
 if "last_response" not in st.session_state:
     st.session_state.last_response = ""
+if "signup_success" not in st.session_state:
+    st.session_state.signup_success = False
+if "signup_error" not in st.session_state:
+    st.session_state.signup_error = ""
 
 # --- GROQ SETUP ---
 groq_api_key = os.getenv("GROQ_API_KEY")
@@ -349,6 +357,31 @@ st.markdown("""
         color: #9ca3af;
     }
     
+    /* --- Early Access Text Color Fix --- */
+    .signup-text h3 {
+        color: #000000 !important;
+        font-weight: 700 !important;
+        font-size: 1.5rem !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    .signup-text p {
+        color: #000000!important;
+        font-weight: 500 !important;
+        font-size: 1rem !important;
+    }
+    
+    /* Target Streamlit markdown specifically for signup section */
+    .signup-text .stMarkdown h3 {
+        color: #000000 !important;
+        font-weight: 700 !important;
+    }
+    
+    .signup-text .stMarkdown p {
+        color: #000000 !important;
+        font-weight: 500 !important;
+    }
+    
     /* --- Hide default Streamlit elements --- */
     #MainMenu, footer, header { visibility: hidden; }
 </style>
@@ -376,19 +409,70 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# This container is a hack to place the button in the header.
-header_button_placeholder = st.empty()
-with header_button_placeholder.container():
-    st.markdown(
-        '<div style="position: fixed; top: 12px; right: 2rem; z-index: 1000;">',
-        unsafe_allow_html=True,
-    )
-    if st.button("⭐ Early Access", key="header_early_access", help="Click for early access information"):
-        st.session_state.early_access_clicked = True
-    st.markdown("</div>", unsafe_allow_html=True)
+# Removed header button - signup form moved to top
+
+# --- EARLY ACCESS SIGNUP (TOP OF PAGE) ---
+st.markdown('<div class="main-content">', unsafe_allow_html=True)
+
+# Early Access Signup Form at the top
+st.markdown('<div class="signup-text">', unsafe_allow_html=True)
+st.markdown("")
+
+if st.session_state.signup_success:
+    st.success("🎉 Thank you! You've been successfully added to our early access list. We'll notify you when MedDoc Assistant launches!")
+    if st.button("Close", key="close_signup_top"):
+        st.session_state.signup_success = False
+        st.session_state.signup_error = ""
+
+elif st.session_state.signup_error:
+    st.error(f"❌ {st.session_state.signup_error}")
+    if st.button("Try Again", key="try_again_top"):
+        st.session_state.signup_error = ""
+
+else:
+    with st.form("signup_form_top"):
+        st.markdown('<p></p>', unsafe_allow_html=True)
+        
+        email = st.text_input(
+            "Email Address",
+            placeholder="Enter your email address",
+            help="We'll only use this to notify you about the launch"
+        )
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            submit_signup = st.form_submit_button("🚀 Join Early Access", use_container_width=True)
+        with col2:
+            cancel_signup = st.form_submit_button("Cancel", use_container_width=True)
+        
+        if submit_signup:
+            if email and email.strip():
+                try:
+                    if validate_email(email.strip()):
+                        if db.email_exists(email.strip()):
+                            st.session_state.signup_error = "This email is already registered for early access"
+                        else:
+                            success = db.add_signup(email.strip())
+                            if success:
+                                st.session_state.signup_success = True
+                                st.session_state.signup_error = ""
+                            else:
+                                st.session_state.signup_error = "Failed to save your email. Please try again."
+                    else:
+                        st.session_state.signup_error = "Please enter a valid email address"
+                except Exception as e:
+                    st.session_state.signup_error = f"An error occurred: {str(e)}"
+            else:
+                st.session_state.signup_error = "Please enter your email address"
+        
+        elif cancel_signup:
+            # Clear any errors when canceling
+            st.session_state.signup_error = ""
+
+st.markdown('</div>', unsafe_allow_html=True)
+st.markdown("---")
 
 # --- MAIN CONTENT ---
-st.markdown('<div class="main-content">', unsafe_allow_html=True)
 
 with st.form("clinical_form"):
     st.markdown(
@@ -419,8 +503,7 @@ with st.form("clinical_form"):
     submit_button = st.form_submit_button("Process with AI", use_container_width=False)
     st.markdown('</div></div>', unsafe_allow_html=True) # Close footer and card
 
-if st.session_state.early_access_clicked:
-    st.info("Thanks for your interest in Early Access! This feature is coming soon.")
+# Early access form now at top of page
 
 # --- PROCESSING AND OUTPUT ---
 output_placeholder = st.container()
@@ -533,13 +616,4 @@ st.markdown("""
 </footer>
 """, unsafe_allow_html=True)
 
-# This container is a hack to place the button in the footer
-footer_button_placeholder = st.empty()
-with footer_button_placeholder.container():
-    st.markdown(
-        '<script>document.getElementById("join-early-access-btn-container").appendChild(document.currentScript.parentElement);</script>',
-        unsafe_allow_html=True,
-    )
-    if st.button("⭐ Join Early Access", key="footer_early_access", help="Click for early access information", use_container_width=True):
-        st.session_state.early_access_clicked = True
-        st.experimental_rerun()
+# Footer button removed - signup form moved to top
